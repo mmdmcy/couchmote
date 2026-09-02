@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101016">
+    <title>CouchMote</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TV REMOTE</p>
+          <h1>CouchMote</h1>
+        </div>
+        <div class="connection" id="connection" data-state="offline">Offline</div>
+      </header>
+
+      <section class="card" id="pair-screen">
+        <p class="eyebrow">FIRST VISIT</p>
+        <h2>Pair this phone</h2>
+        <p class="muted">Run <code>couchmote pair</code> on the TV box and enter the one-time code.</p>
+        <form id="pair-form" class="stack">
+          <label for="pair-code">Pairing code</label>
+          <input id="pair-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" placeholder="00000000" required>
+          <button class="primary" type="submit">Pair phone</button>
+        </form>
+        <p class="message" id="pair-message" role="status"></p>
+      </section>
+
+      <section id="remote-screen" hidden>
+        <section class="card now-playing">
+          <div class="status-line">
+            <div>
+              <p class="eyebrow">ON TV</p>
+              <h2 id="media-title">Waiting for Firefox</h2>
+            </div>
+            <button class="quiet" id="wake-button" type="button">Wake</button>
+          </div>
+          <p class="muted" id="page-status">Connecting to the TV browser…</p>
+          <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+          <div class="time-row"><span id="current-time">0:00</span><span id="duration-time">0:00</span></div>
+        </section>
+
+        <section class="card">
+          <p class="eyebrow">FIND SOMETHING</p>
+          <form id="search-form" class="search-row">
+            <label class="sr-only" for="search-query">Search YouTube</label>
+            <input id="search-query" name="query" type="search" maxlength="200" placeholder="Search YouTube" autocomplete="off" required>
+            <button class="primary" type="submit">Search</button>
+          </form>
+          <form id="url-form" class="url-row">
+            <label class="sr-only" for="youtube-url">YouTube URL</label>
+            <input id="youtube-url" name="url" type="url" placeholder="Or paste a YouTube URL">
+            <button class="quiet" type="submit">Open</button>
+          </form>
+          <div class="results" id="results" aria-live="polite"></div>
+        </section>
+
+        <section class="card controls-card">
+          <p class="eyebrow">PLAYBACK</p>
+          <div class="control-grid playback-grid">
+            <button class="control" data-action="previous" type="button" aria-label="Previous video">↶<small>Previous</small></button>
+            <button class="control hero" data-action="seek_back" type="button" aria-label="Seek back ten seconds">−10<small>Seconds</small></button>
+            <button class="control hero play" id="play-button" data-action="play_pause" type="button" aria-label="Play or pause">▶<small>Play</small></button>
+            <button class="control hero" data-action="seek_forward" type="button" aria-label="Seek forward ten seconds">+10<small>Seconds</small></button>
+            <button class="control" data-action="next" type="button" aria-label="Next video">↷<small>Next</small></button>
+          </div>
+          <div class="control-grid utility-grid">
+            <button class="quiet" data-action="back" type="button">Back</button>
+            <button class="quiet" data-action="home" type="button">YouTube home</button>
+            <button class="quiet" data-action="fullscreen" type="button">Fullscreen</button>
+          </div>
+        </section>
+
+        <section class="card volume-card">
+          <div class="status-line">
+            <div>
+              <p class="eyebrow">TV VOLUME</p>
+              <strong id="volume-label">Unavailable</strong>
+            </div>
+            <button class="quiet" id="mute-button" type="button">Mute</button>
+          </div>
+          <label class="sr-only" for="volume-slider">TV volume</label>
+          <input id="volume-slider" type="range" min="0" max="100" value="0" step="1">
+        </section>
+
+        <section class="card navigation-card">
+          <div class="status-line">
+            <div>
+              <p class="eyebrow">PAGE NAVIGATION</p>
+              <h2>TV buttons</h2>
+            </div>
+            <span class="muted small">No touchpad needed</span>
+          </div>
+          <div class="dpad" aria-label="TV page navigation">
+            <button class="quiet dpad-up" data-nav="up" type="button">▲</button>
+            <button class="quiet dpad-left" data-nav="left" type="button">◀</button>
+            <button class="primary dpad-select" data-nav="select" type="button">OK</button>
+            <button class="quiet dpad-right" data-nav="right" type="button">▶</button>
+            <button class="quiet dpad-down" data-nav="down" type="button">▼</button>
+          </div>
+        </section>
+
+        <section class="footer-actions">
+          <button class="quiet" id="logout-button" type="button">Forget this phone</button>
+          <p class="message" id="remote-message" role="status"></p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

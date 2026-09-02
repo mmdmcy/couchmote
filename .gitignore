@@ -1,0 +1,15 @@
+/target/
+
+.env
+.private/
+
+# Local runtime state should never be committed.
+data/
+*.sqlite
+sessions.json
+firefox-profile/
+
+# Editor and OS files.
+.DS_Store
+.idea/
+.vscode/

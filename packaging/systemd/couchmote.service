@@ -1,0 +1,16 @@
+[Unit]
+Description=CouchMote YouTube TV remote
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/couchmote serve
+Restart=on-failure
+RestartSec=3
+Environment=COUCHMOTE_LISTEN=tailnet
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+
+[Install]
+WantedBy=graphical-session.target
