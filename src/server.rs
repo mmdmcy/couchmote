@@ -487,16 +487,15 @@ async fn require_session(state: &AppState, headers: &HeaderMap) -> Result<(), Re
         .get(COOKIE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| auth::session_from_cookie(Some(value)));
-    if let Some(token) = token
-        && state.auth.authenticate(token).await
-    {
-        Ok(())
-    } else {
-        Err(error_response(
-            StatusCode::UNAUTHORIZED,
-            "pair this browser before controlling CouchMote",
-        ))
+    if let Some(token) = token {
+        if state.auth.authenticate(token).await {
+            return Ok(());
+        }
     }
+    Err(error_response(
+        StatusCode::UNAUTHORIZED,
+        "pair this browser before controlling CouchMote",
+    ))
 }
 
 fn is_local_setup_request(address: SocketAddr) -> bool {
