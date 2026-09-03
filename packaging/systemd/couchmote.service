@@ -5,7 +5,7 @@ Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/couchmote serve
+ExecStart=%h/.local/bin/couchmote serve --no-setup
 Restart=on-failure
 RestartSec=3
 Environment=COUCHMOTE_LISTEN=tailnet

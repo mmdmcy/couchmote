@@ -7,6 +7,7 @@ mod config;
 mod model;
 mod network;
 mod server;
+mod setup;
 mod youtube;
 
 use anyhow::{Context, Result, anyhow};
@@ -62,6 +63,9 @@ struct ServeArgs {
     browser: Option<String>,
     #[arg(long)]
     profile_dir: Option<PathBuf>,
+    /// Do not open the first-run setup page in the local desktop browser.
+    #[arg(long)]
+    no_setup: bool,
 }
 
 #[tokio::main]
@@ -75,18 +79,24 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
-    match cli.command.unwrap_or(CommandKind::Serve(ServeArgs {
+    match cli.command {
+        None => serve(default_serve_args()).await,
+        Some(CommandKind::Serve(args)) => serve(args).await,
+        Some(CommandKind::BrowserSetup) => browser_setup().await,
+        Some(CommandKind::Pair) => admin_pair().await,
+        Some(CommandKind::Status { json }) => admin_status(json).await,
+        Some(CommandKind::Doctor) => doctor().await,
+        Some(CommandKind::Revoke) => admin_revoke().await,
+    }
+}
+
+fn default_serve_args() -> ServeArgs {
+    ServeArgs {
         port: None,
         listen: None,
         browser: None,
         profile_dir: None,
-    })) {
-        CommandKind::Serve(args) => serve(args).await,
-        CommandKind::BrowserSetup => browser_setup().await,
-        CommandKind::Pair => admin_pair().await,
-        CommandKind::Status { json } => admin_status(json).await,
-        CommandKind::Doctor => doctor().await,
-        CommandKind::Revoke => admin_revoke().await,
+        no_setup: false,
     }
 }
 
@@ -109,6 +119,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
     }
 
     let state = AppState::build(config.clone()).await?;
+    let open_setup = !args.no_setup && !config.setup_complete().await?;
     let admin_path = config.runtime_socket.clone();
     let admin_task = tokio::spawn(admin::run(admin_path.clone(), state.clone()));
 
@@ -122,7 +133,7 @@ async fn serve(args: ServeArgs) -> Result<()> {
         Err(error) => tracing::warn!(error = %error, "could not issue startup pairing code"),
     }
 
-    let result = server::run(state).await;
+    let result = server::run(state, open_setup).await;
     admin_task.abort();
     admin::remove_socket(&admin_path).await;
     result

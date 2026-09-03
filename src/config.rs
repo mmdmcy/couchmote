@@ -92,6 +92,46 @@ impl Config {
         Ok(())
     }
 
+    pub fn setup_complete_path(&self) -> PathBuf {
+        self.state_dir.join("setup-complete")
+    }
+
+    pub async fn setup_complete(&self) -> Result<bool> {
+        match tokio::fs::metadata(self.setup_complete_path()).await {
+            Ok(metadata) => Ok(metadata.is_file()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error).with_context(|| {
+                format!("failed to inspect {}", self.setup_complete_path().display())
+            }),
+        }
+    }
+
+    pub async fn mark_setup_complete(&self) -> Result<()> {
+        self.ensure_directories().await?;
+        let path = self.setup_complete_path();
+        tokio::fs::write(&path, b"CouchMote setup completed.\n")
+            .await
+            .with_context(|| format!("failed to write {}", path.display()))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+                .await
+                .with_context(|| format!("failed to secure {}", path.display()))?;
+        }
+        Ok(())
+    }
+
+    pub fn autostart_path(&self) -> PathBuf {
+        let config_home = env::var_os("XDG_CONFIG_HOME")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+            .unwrap_or_else(|| PathBuf::from(".config"));
+        config_home.join("autostart/couchmote.desktop")
+    }
+
     pub fn sessions_path(&self) -> PathBuf {
         self.state_dir.join("sessions.json")
     }

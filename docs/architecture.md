@@ -12,6 +12,11 @@ CouchMote HTTP server ── local Unix admin socket
     └── Audio adapter ── pactl/PipeWire default HDMI sink
 ```
 
+First launch from the desktop Applications menu opens a loopback-only setup
+page. That page performs host checks, creates a pairing code, and can install a
+per-user desktop autostart entry. The phone never receives access to those
+setup endpoints.
+
 The browser manager is an actor. It owns the Firefox child process, the BiDi
 WebSocket, the active browsing context, and all page automation. HTTP handlers
 send typed commands to that actor rather than opening independent browser

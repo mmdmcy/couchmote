@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=CouchMote
+Comment=Simple YouTube remote for the TV
+Exec=couchmote
+TryExec=couchmote
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;

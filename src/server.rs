@@ -16,7 +16,9 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
+use tokio::process::Command;
 use tokio::task::JoinSet;
+use tokio::time::{Duration, sleep};
 
 use crate::{
     audio::AudioController,
@@ -24,12 +26,15 @@ use crate::{
     browser::BrowserHandle,
     config::Config,
     model::{BrowserAction, RemoteState},
-    network, youtube,
+    network, setup, youtube,
 };
 
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const APP_JS: &str = include_str!("../assets/app.js");
 const STYLE_CSS: &str = include_str!("../assets/style.css");
+const SETUP_HTML: &str = include_str!("../assets/setup.html");
+const SETUP_JS: &str = include_str!("../assets/setup.js");
+const SETUP_CSS: &str = include_str!("../assets/setup.css");
 
 #[derive(Clone)]
 pub struct AppState {
@@ -64,7 +69,7 @@ impl AppState {
     }
 }
 
-pub async fn run(state: Arc<AppState>) -> Result<()> {
+pub async fn run(state: Arc<AppState>, open_setup: bool) -> Result<()> {
     let router = build_router(state.clone());
     let mut servers = JoinSet::new();
     let mut bound = 0usize;
@@ -94,6 +99,20 @@ pub async fn run(state: Arc<AppState>) -> Result<()> {
         return Err(anyhow!("CouchMote could not bind any HTTP listener"));
     }
 
+    if open_setup {
+        let url = format!("http://127.0.0.1:{}/setup", state.config.port);
+        tokio::spawn(async move {
+            sleep(Duration::from_millis(700)).await;
+            match Command::new("xdg-open").arg(&url).status().await {
+                Ok(status) if status.success() => {
+                    tracing::debug!(%url, "opened CouchMote setup page")
+                }
+                Ok(status) => tracing::debug!(%url, ?status, "could not open CouchMote setup page"),
+                Err(error) => tracing::debug!(%url, %error, "could not open CouchMote setup page"),
+            }
+        });
+    }
+
     if let Ok(addresses) = network::tailnet_addresses() {
         if addresses.is_empty() && state.config.listen == crate::config::ListenMode::Tailnet {
             tracing::warn!(
@@ -113,9 +132,15 @@ pub async fn run(state: Arc<AppState>) -> Result<()> {
 fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/setup", get(setup_page))
         .route("/assets/app.js", get(app_js))
         .route("/assets/style.css", get(style_css))
+        .route("/assets/setup.js", get(setup_js))
+        .route("/assets/setup.css", get(setup_css))
         .route("/healthz", get(healthz))
+        .route("/api/setup/status", get(api_setup_status))
+        .route("/api/setup/pair", post(api_setup_pair))
+        .route("/api/setup/finish", post(api_setup_finish))
         .route("/api/state", get(api_state))
         .route("/api/pair", post(api_pair))
         .route("/api/search", post(api_search))
@@ -155,6 +180,24 @@ async fn index() -> Response {
     response
 }
 
+async fn setup_page(ConnectInfo(address): ConnectInfo<SocketAddr>) -> Response {
+    if !address.ip().is_loopback() {
+        return error_response(
+            StatusCode::FORBIDDEN,
+            "the CouchMote setup page is only available on the TV box",
+        );
+    }
+    let mut response = HtmlResponse(SETUP_HTML).into_response();
+    add_static_headers(&mut response, "text/html; charset=utf-8");
+    response.headers_mut().insert(
+        CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(
+            "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:",
+        ),
+    );
+    response
+}
+
 async fn app_js() -> Response {
     let mut response = HtmlResponse(APP_JS).into_response();
     add_static_headers(&mut response, "text/javascript; charset=utf-8");
@@ -167,8 +210,118 @@ async fn style_css() -> Response {
     response
 }
 
+async fn setup_js(ConnectInfo(address): ConnectInfo<SocketAddr>) -> Response {
+    if !address.ip().is_loopback() {
+        return error_response(
+            StatusCode::FORBIDDEN,
+            "the CouchMote setup page is only available on the TV box",
+        );
+    }
+    let mut response = HtmlResponse(SETUP_JS).into_response();
+    add_static_headers(&mut response, "text/javascript; charset=utf-8");
+    response
+}
+
+async fn setup_css(ConnectInfo(address): ConnectInfo<SocketAddr>) -> Response {
+    if !address.ip().is_loopback() {
+        return error_response(
+            StatusCode::FORBIDDEN,
+            "the CouchMote setup page is only available on the TV box",
+        );
+    }
+    let mut response = HtmlResponse(SETUP_CSS).into_response();
+    add_static_headers(&mut response, "text/css; charset=utf-8");
+    response
+}
+
 async fn healthz() -> Json<serde_json::Value> {
     Json(json!({"ok": true}))
+}
+
+async fn api_setup_status(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(address): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !is_local_setup_request(address) {
+        return setup_forbidden();
+    }
+    match setup::status(&state.config, &state.browser.snapshot().await).await {
+        Ok(status) => Json(status).into_response(),
+        Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn api_setup_pair(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    ConnectInfo(address): ConnectInfo<SocketAddr>,
+) -> Response {
+    if !is_local_setup_request(address) {
+        return setup_forbidden();
+    }
+    if !same_origin(&headers) {
+        return error_response(
+            StatusCode::FORBIDDEN,
+            "cross-origin setup requests are not allowed",
+        );
+    }
+    let pairing = match state.auth.issue_pairing_code().await {
+        Ok(pairing) => pairing,
+        Err(error) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    };
+    let urls = network::tailnet_addresses()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|address| match address {
+            std::net::IpAddr::V4(address) => format!("http://{address}:{}", state.config.port),
+            std::net::IpAddr::V6(address) => format!("http://[{address}]:{}", state.config.port),
+        })
+        .collect::<Vec<_>>();
+    Json(json!({
+        "code": pairing.code,
+        "expires_at": pairing.expires_at,
+        "tailnet_urls": urls,
+    }))
+    .into_response()
+}
+
+async fn api_setup_finish(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    ConnectInfo(address): ConnectInfo<SocketAddr>,
+    Json(request): Json<SetupFinishRequest>,
+) -> Response {
+    if !is_local_setup_request(address) {
+        return setup_forbidden();
+    }
+    if !same_origin(&headers) {
+        return error_response(
+            StatusCode::FORBIDDEN,
+            "cross-origin setup requests are not allowed",
+        );
+    }
+
+    let status = match setup::status(&state.config, &state.browser.snapshot().await).await {
+        Ok(status) => status,
+        Err(error) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    };
+    if !status.can_finish {
+        return error_response(
+            StatusCode::PRECONDITION_FAILED,
+            "finish the required setup checks first",
+        );
+    }
+    if let Err(error) = setup::set_autostart(&state.config, request.autostart).await {
+        return error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string());
+    }
+    if let Err(error) = state.config.mark_setup_complete().await {
+        return error_response(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string());
+    }
+    Json(json!({
+        "complete": true,
+        "autostart": request.autostart,
+    }))
+    .into_response()
 }
 
 async fn api_state(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
@@ -346,6 +499,17 @@ async fn require_session(state: &AppState, headers: &HeaderMap) -> Result<(), Re
     }
 }
 
+fn is_local_setup_request(address: SocketAddr) -> bool {
+    address.ip().is_loopback()
+}
+
+fn setup_forbidden() -> Response {
+    error_response(
+        StatusCode::FORBIDDEN,
+        "the CouchMote setup page is only available on the TV box",
+    )
+}
+
 fn same_origin(headers: &HeaderMap) -> bool {
     let Some(origin) = headers.get(ORIGIN).and_then(|value| value.to_str().ok()) else {
         return true;
@@ -397,6 +561,16 @@ struct OpenSearchRequest {
 #[derive(Debug, Deserialize)]
 struct OpenYoutubeRequest {
     url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SetupFinishRequest {
+    #[serde(default = "default_true")]
+    autostart: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize)]

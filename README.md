@@ -15,7 +15,19 @@ It is intentionally narrower than a remote desktop tool:
 The current target is Linux Mint/Cinnamon on X11 with Firefox, Tailscale, and
 PipeWire/PulseAudio compatibility through `pactl`.
 
-## Quick start
+## Click-through setup (Linux Mint)
+
+For the normal TV setup, you should not need to use the terminal:
+
+1. Double-click [`scripts/install.sh`](scripts/install.sh) in the file manager and choose **Run in Terminal** if Mint asks.
+2. Open **CouchMote** from the Applications menu.
+3. Follow the setup window on the TV: let it check the box, use the displayed pairing code on the iPhone, and click **Finish setup**.
+
+The setup window creates the dedicated Firefox profile, shows the Tailscale
+address for the phone, and can start CouchMote automatically at login. It is
+local-only and never exposes host setup actions to the iPhone.
+
+## Manual/source setup
 
 Install the host dependencies:
 
@@ -37,22 +49,23 @@ session. Confirm the environment first:
 couchmote doctor
 ```
 
-The first setup launches a separate persistent Firefox profile. Sign in to
-YouTube once on the TV if you want subscriptions and recommendations:
+The first launch automatically creates and opens the separate persistent
+Firefox profile. If you want subscriptions and recommendations, sign in to
+YouTube once in that TV window; the profile will remember it.
 
-```sh
-couchmote browser-setup
-```
+`couchmote browser-setup` remains available as an advanced manual helper when
+the service is stopped.
 
-Close the setup window, then start the remote service:
+Start the remote service:
 
 ```sh
 couchmote serve
 ```
 
-The default listener is loopback plus any local Tailscale addresses on port
-`8791`. The service prints the URL and a one-time pairing code. Open the URL on
-your iPhone while Tailscale is connected, enter the code, and use the remote.
+On a first run, `couchmote serve` also opens the local setup page. The default
+listener is loopback plus any local Tailscale addresses on port `8791`. Open
+the displayed URL on your iPhone while Tailscale is connected, enter the code,
+and use the remote.
 
 Generate another pairing code later with:
 
@@ -66,9 +79,11 @@ Remembered phone sessions last 30 days. Revoke all of them with:
 couchmote revoke
 ```
 
-## Run as a user service
+## Optional systemd user service
 
-Copy [`packaging/systemd/couchmote.service`](packaging/systemd/couchmote.service)
+The setup wizard's **Start CouchMote automatically** option is the easiest
+choice. For users who already manage graphical services with systemd, copy
+[`packaging/systemd/couchmote.service`](packaging/systemd/couchmote.service)
 to `~/.config/systemd/user/`, adjust the binary path if needed, and import the
 graphical session variables:
 
@@ -98,7 +113,9 @@ Environment variables are documented in [`.env.example`](.env.example):
 | `COUCHMOTE_PROFILE_DIR` | `<state>/firefox-profile` | Dedicated Firefox profile |
 | `COUCHMOTE_SOCKET` | `$XDG_RUNTIME_DIR/couchmote.sock` | Local admin socket |
 
-Command-line flags on `serve` override the matching environment values.
+Command-line flags on `serve` override the matching environment values. Use
+`couchmote serve --no-setup` for a service that must never open a local setup
+window.
 
 ## Controls
 

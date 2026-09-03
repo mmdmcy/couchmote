@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101016">
+    <title>Set up CouchMote</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="/assets/setup.css">
+    <script src="/assets/setup.js" defer></script>
+  </head>
+  <body>
+    <main class="shell setup-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ONE-TIME SETUP</p>
+          <h1>CouchMote</h1>
+        </div>
+        <div class="connection" id="setup-connection" data-state="offline">Checking…</div>
+      </header>
+
+      <section class="card setup-intro">
+        <p class="eyebrow">TV REMOTE, READY IN A MINUTE</p>
+        <h2>Let’s get this TV box ready.</h2>
+        <p class="muted">CouchMote keeps Firefox on the TV and gives your iPhone the buttons. This page handles the setup so you do not need terminal commands.</p>
+        <ol class="setup-steps">
+          <li><span>1</span><div><strong>Check the TV box</strong><small>Firefox, display, audio, and Tailscale</small></div></li>
+          <li><span>2</span><div><strong>Pair your iPhone</strong><small>Use the short code below once</small></div></li>
+          <li><span>3</span><div><strong>Finish</strong><small>CouchMote can start by itself next time</small></div></li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <div class="status-line">
+          <div>
+            <p class="eyebrow">STEP 1</p>
+            <h2>TV box check</h2>
+          </div>
+          <button class="quiet" id="refresh-button" type="button">Check again</button>
+        </div>
+        <div class="setup-checks" id="setup-checks" aria-live="polite"></div>
+        <p class="setup-browser-status muted" id="browser-status">Starting the dedicated Firefox window…</p>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">STEP 2</p>
+        <h2>Pair your iPhone</h2>
+        <p class="muted">Keep Tailscale connected on the iPhone. Open one of the addresses below, then enter this code.</p>
+        <div class="pair-code-box">
+          <strong id="pair-code">--------</strong>
+          <button class="quiet" id="copy-code-button" type="button">Copy code</button>
+        </div>
+        <p class="message" id="pair-expiry" role="status">Generating a fresh code…</p>
+        <div class="phone-links" id="phone-links"></div>
+        <button class="quiet refresh-code" id="new-code-button" type="button">Get a new code</button>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">STEP 3</p>
+        <h2>Make it hands-off</h2>
+        <label class="setup-option" for="autostart">
+          <input id="autostart" type="checkbox" checked>
+          <span><strong>Start CouchMote automatically</strong><small>It will be ready whenever you log in to the TV box.</small></span>
+        </label>
+        <button class="primary finish-button" id="finish-button" type="button" disabled>Finish setup</button>
+        <p class="message" id="finish-message" role="status"></p>
+      </section>
+
+      <section class="card setup-done" id="done-card" hidden>
+        <p class="eyebrow">ALL DONE</p>
+        <h2>Grab the iPhone and sit back.</h2>
+        <p class="muted">The TV browser is ready. Use the CouchMote address and pairing code above whenever you want to control it.</p>
+        <a class="primary setup-link" href="/" target="_blank" rel="noreferrer">Open remote on this TV</a>
+      </section>
+    </main>
+  </body>
+</html>
