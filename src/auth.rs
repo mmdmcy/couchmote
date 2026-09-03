@@ -197,12 +197,22 @@ pub fn session_from_cookie(header: Option<&str>) -> Option<&str> {
 
 fn hash_secret(secret: &str) -> String {
     let digest = Sha256::digest(secret.as_bytes());
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex_encode(&digest)
 }
 
 fn random_token() -> String {
     let bytes: [u8; 32] = rand::random();
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex_encode(&bytes)
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
 }
 
 fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {

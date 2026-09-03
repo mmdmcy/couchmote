@@ -162,10 +162,17 @@ pub fn parse_search_results(value: &str) -> Result<Vec<SearchResult>> {
 
 fn result_id(url: &str) -> String {
     let digest = Sha256::digest(url.as_bytes());
-    digest[..8]
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    hex_encode(&digest[..8])
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
 }
 
 fn is_youtube_host(host: Option<&str>) -> bool {
